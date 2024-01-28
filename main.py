@@ -1,12 +1,12 @@
 #!/usr/bin/python3
-import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"]="2"
-import cv2
-import numpy as np
-import keras
-from keras import layers
-import tkinter as tk
 from PIL import Image
+import tkinter as tk
+from keras import layers
+import keras
+import numpy as np
+import cv2
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 IMG_SIZE = (120, 120)
 EPOCHS = 100
@@ -31,11 +31,12 @@ class_names = [
     'voltmeter',
 ]
 
-def import_dataset(path: str, invert=False, test=False):
-    x, y= [], []
+
+def import_dataset(path: str, invert=False):
+    x, y = [], []
     for dir in os.listdir(path):
         sub_path = path + '/' + dir
-        sub_dir = os.listdir(sub_path) if not test else os.listdir(sub_path)
+        sub_dir = os.listdir(sub_path)
         for img in sub_dir:
             image_path = sub_path + '/' + img
             img_arr = cv2.imread(image_path)
@@ -51,7 +52,7 @@ def import_dataset(path: str, invert=False, test=False):
 
 def train_model():
     x_train, y_train = import_dataset(TRAIN_DIR)
-    x_test, y_test = import_dataset(TRAIN_DIR, test=True)
+    x_test, y_test = import_dataset(TRAIN_DIR)
 
     model = keras.Sequential([
         layers.Input((120, 120, 3)),
@@ -85,18 +86,19 @@ def train_model():
     model.save('data.model')
 
 
-if not 'data.model' in os.listdir():
+if 'data.model'not in os.listdir():
     train_model()
 
 model = keras.models.load_model('data.model')
-if model == None:
+if model is None:
     print('failed to load model')
     exit(-1)
+
 
 class Painter:
     def __init__(self, win: tk.Tk):
         self.win = win
-        self.canvas = tk.Canvas(win, width=1000, height=800, bg='white')
+        self.canvas = tk.Canvas(win, width=600, height=600, bg='white')
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.old_x = None
         self.old_y = None
@@ -113,7 +115,8 @@ class Painter:
 
     def paint(self, e):
         if self.old_x and self.old_y:
-            self.canvas.create_line(self.old_x, self.old_y, e.x, e.y, width=12, fill='black', capstyle='round', smooth=True)
+            self.canvas.create_line(self.old_x, self.old_y, e.x, e.y,
+                                    width=18, fill='black', capstyle='round', smooth=True)
         self.old_x, self.old_y = e.x, e.y
 
     def reset(self, _):
@@ -132,13 +135,15 @@ class Painter:
         popup = tk.Toplevel(self.win)
         popup.geometry('500x200')
         popup.title('Model Prediction')
-        tk.Label(popup, text=f'Prediction is {class_names[index]}').place(x=100, y=70)
+        tk.Label(popup, text=f'Prediction is {class_names[index]}').place(
+            x=100, y=70)
 
     def save_img(self):
         fname = 'contents'
         self.canvas.postscript(file=fname+'.eps')
         img = Image.open(fname+'.eps')
         img.save(fname+'.png', 'png')
+
 
 win = tk.Tk()
 win.resizable(False, False)
