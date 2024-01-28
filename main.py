@@ -3,12 +3,13 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"]="2"
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import keras
 from keras import layers
+import tkinter as tk
+from PIL import Image
 
 IMG_SIZE = (120, 120)
-EPOCHS = 24
+EPOCHS = 100
 TRAIN_DIR = 'train'
 TEST_DIR = 'test'
 
@@ -30,11 +31,11 @@ class_names = [
     'voltmeter',
 ]
 
-def import_dataset(path: str, invert=False):
+def import_dataset(path: str, invert=False, test=False):
     x, y= [], []
     for dir in os.listdir(path):
         sub_path = path + '/' + dir
-        sub_dir = os.listdir(sub_path)
+        sub_dir = os.listdir(sub_path) if not test else os.listdir(sub_path)
         for img in sub_dir:
             image_path = sub_path + '/' + img
             img_arr = cv2.imread(image_path)
@@ -50,7 +51,7 @@ def import_dataset(path: str, invert=False):
 
 def train_model():
     x_train, y_train = import_dataset(TRAIN_DIR)
-    x_test, y_test = import_dataset(TRAIN_DIR)
+    x_test, y_test = import_dataset(TRAIN_DIR, test=True)
 
     model = keras.Sequential([
         layers.Input((120, 120, 3)),
@@ -92,10 +93,55 @@ if model == None:
     print('failed to load model')
     exit(-1)
 
-x, y = import_dataset(TEST_DIR, invert=True)
+class Painter:
+    def __init__(self, win: tk.Tk):
+        self.win = win
+        self.canvas = tk.Canvas(win, width=1000, height=800, bg='white')
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.old_x = None
+        self.old_y = None
 
-for i in range(len(x)):
-    predictions = model.predict(np.array([x[i]]))
-    index = np.argmax(predictions)
-    print(f'Prediction is {class_names[index]}')
-    print(f'Reality is {class_names[y[i]]}')
+        menu = tk.Menu(win)
+        win.config(menu=menu)
+        opts = tk.Menu(menu)
+        menu.add_cascade(label='Menu', menu=opts)
+        opts.add_command(label='Clear', command=self.clear)
+        opts.add_command(label='Evaluate', command=self.evaluate)
+
+        self.canvas.bind('<B1-Motion>', self.paint)
+        self.canvas.bind('<ButtonRelease-1>', self.reset)
+
+    def paint(self, e):
+        if self.old_x and self.old_y:
+            self.canvas.create_line(self.old_x, self.old_y, e.x, e.y, width=12, fill='black', capstyle='round', smooth=True)
+        self.old_x, self.old_y = e.x, e.y
+
+    def reset(self, _):
+        self.old_x, self.old_y = None, None
+
+    def clear(self):
+        self.canvas.delete(tk.ALL)
+
+    def evaluate(self):
+        self.save_img()
+        img_arr = cv2.imread('contents.png')
+        img_arr = cv2.resize(img_arr, IMG_SIZE)
+        x = np.invert(img_arr)
+        predictions = model.predict(np.array([x]))
+        index = np.argmax(predictions)
+        popup = tk.Toplevel(self.win)
+        popup.geometry('500x200')
+        popup.title('Model Prediction')
+        tk.Label(popup, text=f'Prediction is {class_names[index]}').place(x=100, y=70)
+
+    def save_img(self):
+        fname = 'contents'
+        self.canvas.postscript(file=fname+'.eps')
+        img = Image.open(fname+'.eps')
+        img.save(fname+'.png', 'png')
+
+win = tk.Tk()
+win.resizable(False, False)
+win.title("Circuit-ML")
+_ = Painter(win)
+win.mainloop()
